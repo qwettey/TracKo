@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Microscope, Plus, Search, Filter, Droplets, Scissors, LayoutGrid, Info, ShieldCheck, AlertCircle, Beaker, FileText, Hash, Edit3 } from 'lucide-react';
 import { Order, QualityAnalysis } from '../types';
 import { formatNumberTR } from '../utils/formatters';
@@ -7,15 +7,17 @@ import { EntryAnalysisDialog } from '../components/Dialogs';
 
 interface EntryAnalysisProps {
   orders: Order[];
+  analyses?: QualityAnalysis[];
+  onUpdateAnalyses?: (analyses: QualityAnalysis[]) => void;
 }
 
-const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
+const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders, analyses: externalAnalyses, onUpdateAnalyses }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState<QualityAnalysis | null>(null);
 
-  // Mock initial analysis data matching the new structure
-  const [analyses, setAnalyses] = useState<QualityAnalysis[]>([
+  // Eğer external analyses varsa onu kullan, yoksa local mock data
+  const [localAnalyses, setLocalAnalyses] = useState<QualityAnalysis[]>([
     {
       id: '1',
       contract_no: 'CONT-2024-001',
@@ -43,16 +45,31 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
     }
   ]);
 
+  // External analyses değiştiğinde local'i güncelle
+  useEffect(() => {
+    if (externalAnalyses && externalAnalyses.length > 0) {
+      setLocalAnalyses(externalAnalyses);
+    }
+  }, [externalAnalyses]);
+
+  const analyses = externalAnalyses && externalAnalyses.length > 0 ? externalAnalyses : localAnalyses;
+
   const handleSaveAnalysis = (newAnalysis: QualityAnalysis) => {
-    setAnalyses(prev => {
-      const existingIdx = prev.findIndex(a => a.id === newAnalysis.id);
+    const updatedAnalyses = (() => {
+      const existingIdx = analyses.findIndex(a => a.id === newAnalysis.id);
       if (existingIdx >= 0) {
-        const updated = [...prev];
+        const updated = [...analyses];
         updated[existingIdx] = newAnalysis;
         return updated;
       }
-      return [newAnalysis, ...prev];
-    });
+      return [newAnalysis, ...analyses];
+    })();
+
+    if (onUpdateAnalyses) {
+      onUpdateAnalyses(updatedAnalyses);
+    } else {
+      setLocalAnalyses(updatedAnalyses);
+    }
     setSelectedAnalysis(null);
   };
 
@@ -67,7 +84,7 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
   };
 
   const filteredAnalyses = useMemo(() => {
-    return analyses.filter(a => 
+    return analyses.filter(a =>
       a.contract_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.container_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.grade.toLowerCase().includes(searchQuery.toLowerCase())
@@ -81,7 +98,7 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
           <h2 className="text-3xl font-bold text-slate-800">Giriş (Hammadde) Analizleri</h2>
           <p className="text-slate-500 mt-1">İthalat ve yerel alım ürünlerinin detaylı kalite raporları.</p>
         </div>
-        <button 
+        <button
           onClick={handleNewReport}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-blue-100 transition-all active:scale-95 group"
         >
@@ -133,23 +150,23 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
         <div className="p-6 border-b border-slate-50 flex items-center justify-between">
           <div className="relative w-full max-sm:max-w-xs">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Kontrat, Konteyner veya Grade ara..." 
+            <input
+              type="text"
+              placeholder="Kontrat, Konteyner veya Grade ara..."
               className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm w-full outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
           <div className="flex items-center gap-3">
-             <span className="text-xs text-slate-400 font-medium">Filtrele:</span>
-             <div className="flex gap-2">
-                <button className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase">Son 30 Gün</button>
-                <button className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-bold uppercase">Hatalı Ürünler</button>
-             </div>
+            <span className="text-xs text-slate-400 font-medium">Filtrele:</span>
+            <div className="flex gap-2">
+              <button className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase">Son 30 Gün</button>
+              <button className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-bold uppercase">Hatalı Ürünler</button>
+            </div>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -192,13 +209,13 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
                   </td>
                   <td className="px-2 py-4 text-center text-sm font-bold text-slate-700">{analysis.caliber}</td>
                   <td className="px-2 py-4 text-center">
-                     <div className="flex flex-col items-center">
-                        <span className={`text-sm font-black ${analysis.total_h_b > 18 ? 'text-orange-500' : 'text-slate-900'}`}>%{analysis.total_h_b}</span>
-                        <span className="text-[9px] text-slate-400">Ş:{analysis.halves_ratio} K:{analysis.broken_ratio}</span>
-                     </div>
+                    <div className="flex flex-col items-center">
+                      <span className={`text-sm font-black ${analysis.total_h_b > 18 ? 'text-orange-500' : 'text-slate-900'}`}>%{analysis.total_h_b}</span>
+                      <span className="text-[9px] text-slate-400">Ş:{analysis.halves_ratio} K:{analysis.broken_ratio}</span>
+                    </div>
                   </td>
                   <td className="px-2 py-4 text-center">
-                     <span className="text-xs font-bold text-slate-600">%{((analysis.skin_on || 0) + (analysis.spotted || 0)).toFixed(1)}</span>
+                    <span className="text-xs font-bold text-slate-600">%{((analysis.skin_on || 0) + (analysis.spotted || 0)).toFixed(1)}</span>
                   </td>
                   <td className="px-2 py-4 text-center">
                     <span className={`text-xs font-bold ${analysis.insect_bored > 0.5 ? 'text-rose-600' : 'text-slate-500'}`}>
@@ -209,12 +226,12 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
                     <span className="text-[10px] font-medium text-slate-500">{analysis.analyst}</span>
                   </td>
                   <td className="px-4 py-4 text-right">
-                    <button 
+                    <button
                       onClick={() => handleEdit(analysis)}
                       className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                       title="Analizi Düzenle"
                     >
-                       <FileText size={18} />
+                      <FileText size={18} />
                     </button>
                   </td>
                 </tr>
@@ -223,7 +240,7 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
           </table>
         </div>
       </div>
-      
+
       <div className="bg-slate-900 rounded-3xl p-6 text-white flex items-center justify-between overflow-hidden relative">
         <div className="relative z-10 flex items-center gap-6">
           <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md">
@@ -240,7 +257,7 @@ const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders }) => {
         <Microscope size={120} className="absolute -right-6 -bottom-6 text-white/5 rotate-12" />
       </div>
 
-      <EntryAnalysisDialog 
+      <EntryAnalysisDialog
         isOpen={isDialogOpen}
         onClose={() => {
           setIsDialogOpen(false);

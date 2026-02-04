@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Search, Plus, Filter, LayoutGrid, Clock, Package, Archive } from 'lucide-react';
-import { Order, Stage, Grade, PriceRecord, FreightRecord } from './types';
+import { Order, Stage, Grade, PriceRecord, FreightRecord, QualityAnalysis } from './types';
 import { STAGES, INITIAL_ORDERS, GRADES } from './constants';
 import { parseDateTR, isWithinNext10Days, formatNumberTR } from './utils/formatters';
 import Header from './components/Header';
@@ -18,18 +18,29 @@ import EntryAnalysis from './pages/EntryAnalysis';
 import ExitAnalysisPage from './pages/ExitAnalysis';
 import { NewOrderDialog, TransitionDialog, OrderDetailsDialog, ImportDialog } from './components/Dialogs';
 
+
 const App: React.FC = () => {
   // --- NAVIGATION STATE ---
   const [currentPage, setCurrentPage] = useState<'home' | 'prices' | 'freight' | 'archived' | 'price-stats' | 'prod-stats' | 'prod-tracking' | 'blending' | 'entry-analysis' | 'exit-analysis'>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // --- ORDER STATE ---
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
-  const [activeStage, setActiveStage] = useState<Stage>('Sipariş');
+  // --- ORDER STATE (with localStorage persistence) ---
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('tracko_orders');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return INITIAL_ORDERS;
+      }
+    }
+    return INITIAL_ORDERS;
+  });
+  const [activeStage, setActiveStage] = useState<Stage>('Depoda');
   const [searchQuery, setSearchQuery] = useState('');
   const [gradeFilter, setGradeFilter] = useState<Grade | 'All'>('All');
   const [etaFilter10Days, setEtaFilter10Days] = useState(false);
-  const [sortBy, setSortBy] = useState<'ETA_NEAR' | 'CONTRACT_NO'>('ETA_NEAR');
+  const [sortBy, setSortBy] = useState<'ETA_NEAR' | 'CONTRACT_NO'>('CONTRACT_NO');
 
   // --- PRICE STATE ---
   const [priceHistory, setPriceHistory] = useState<PriceRecord[]>([
@@ -47,6 +58,28 @@ const App: React.FC = () => {
     { id: '3', date: '01.05.2024', price: 4150, change: '0,00', status: 'stable' },
   ]);
 
+  // --- ANALYSIS STATE (with localStorage persistence) ---
+  const [analyses, setAnalyses] = useState<QualityAnalysis[]>(() => {
+    const saved = localStorage.getItem('tracko_analyses');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Save to localStorage when data changes
+  useEffect(() => {
+    localStorage.setItem('tracko_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('tracko_analyses', JSON.stringify(analyses));
+  }, [analyses]);
+
   // Latest freight for calculations
   const latestFreightPrice = useMemo(() => {
     return freightHistory.length > 0 ? freightHistory[0].price : 0;
@@ -57,6 +90,29 @@ const App: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<Order | null>(null);
   const [transitionModal, setTransitionModal] = useState<{ isOpen: boolean; orderId: string; targetStage: Stage } | null>(null);
+
+  // --- MULTI-SELECT STATE ---
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+
+  // Çoklu seçim handler
+  const handleSelectOrder = useCallback((orderId: string, isCtrlPressed: boolean) => {
+    if (isCtrlPressed) {
+      setSelectedOrderIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(orderId)) {
+          newSet.delete(orderId);
+        } else {
+          newSet.add(orderId);
+        }
+        return newSet;
+      });
+    }
+  }, []);
+
+  // Seçimi temizle
+  const clearSelection = useCallback(() => {
+    setSelectedOrderIds(new Set());
+  }, []);
 
   // --- PRICE RECORD HELPER ---
   const addPriceToHistory = useCallback((grade: Grade, price: number, date: string) => {
@@ -101,21 +157,23 @@ const App: React.FC = () => {
     setCurrentPage('home');
   };
 
-  const handleBulkImport = (newOrders: Omit<Order, 'id' | 'stage'>[]) => {
+  const handleBulkImport = (newOrders: Omit<Order, 'id'>[], newAnalyses: QualityAnalysis[]) => {
+    // Mevcut verileri sil ve yenilerini ekle
     const ordersWithId = newOrders.map(order => ({
       ...order,
       id: crypto.randomUUID(),
-      stage: 'Sipariş' as Stage
     }));
 
-    // Add the first imported item's price to history as an example or for the latest record
-    if (ordersWithId.length > 0) {
-      addPriceToHistory(ordersWithId[0].grade, ordersWithId[0].unit_price, ordersWithId[0].order_date);
-    }
+    // Stage'i Excel'den alınan değeri koru, yoksa Depoda yap
+    const ordersWithStage = ordersWithId.map(order => ({
+      ...order,
+      stage: (order as any).stage || 'Depoda' as Stage
+    }));
 
-    setOrders(prev => [...ordersWithId, ...prev]);
+    setOrders(ordersWithStage);
+    setAnalyses(newAnalyses);
     setIsImportModalOpen(false);
-    setActiveStage('Sipariş');
+    setActiveStage('Depoda');
     setCurrentPage('home');
   };
 
@@ -135,11 +193,47 @@ const App: React.FC = () => {
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData('orderId', id);
+    // Eğer seçili siparişler varsa ve sürüklenen bunlardan biriyse, tüm seçilileri taşı
+    if (selectedOrderIds.size > 0 && selectedOrderIds.has(id)) {
+      e.dataTransfer.setData('orderIds', JSON.stringify(Array.from(selectedOrderIds)));
+    } else {
+      e.dataTransfer.setData('orderId', id);
+    }
   };
 
   const handleDropOnStage = (e: React.DragEvent, targetStage: Stage) => {
     e.preventDefault();
+
+    // Çoklu seçim kontrolü
+    const multipleIds = e.dataTransfer.getData('orderIds');
+    if (multipleIds) {
+      try {
+        const ids: string[] = JSON.parse(multipleIds);
+        // Toplu taşıma - sadece basit aşamalar için direkt taşı
+        if (['Sipariş', 'Limanda'].includes(targetStage)) {
+          ids.forEach(orderId => {
+            const order = orders.find(o => o.id === orderId);
+            if (order && order.stage !== targetStage) {
+              updateOrderStage(orderId, targetStage);
+            }
+          });
+          clearSelection();
+        } else {
+          // Diğer aşamalar için ilk siparişi kullanarak dialog aç
+          // (toplu taşımada detay girişi basitleştirildi)
+          ids.forEach(orderId => {
+            const order = orders.find(o => o.id === orderId);
+            if (order && order.stage !== targetStage) {
+              updateOrderStage(orderId, targetStage);
+            }
+          });
+          clearSelection();
+        }
+        return;
+      } catch { }
+    }
+
+    // Tekli taşıma
     const orderId = e.dataTransfer.getData('orderId');
     const order = orders.find(o => o.id === orderId);
 
@@ -183,7 +277,15 @@ const App: React.FC = () => {
     if (etaFilter10Days) {
       result = result.filter(o => o.eta && isWithinNext10Days(o.eta));
     }
-    // Sıralama: ETA yakın veya Sözleşme No (varsayılan: en yeni en üstte - dizinin mevcut sırası korunur)
+
+    // Varsayılan sıralama: Sipariş tarihine göre (en yeni en üstte)
+    result.sort((a, b) => {
+      const dateA = a.order_date ? parseDateTR(a.order_date).getTime() : 0;
+      const dateB = b.order_date ? parseDateTR(b.order_date).getTime() : 0;
+      return dateB - dateA; // En yeni en üstte
+    });
+
+    // ETA yakın seçiliyse, ETA'ya göre tekrar sırala
     if (sortBy === 'ETA_NEAR') {
       result.sort((a, b) => {
         const dateA = a.eta ? parseDateTR(a.eta).getTime() : Infinity;
@@ -191,7 +293,7 @@ const App: React.FC = () => {
         return dateA - dateB;
       });
     }
-    // sortBy === 'CONTRACT_NO' durumunda sıralama yapmayız - en yeni en üstte kalır
+
     return result;
   }, [orders, activeStage, searchQuery, gradeFilter, etaFilter10Days, sortBy]);
 
@@ -204,6 +306,12 @@ const App: React.FC = () => {
         o.supplier.toLowerCase().includes(q)
       );
     }
+    // Sipariş tarihine göre sırala (en yeni en üstte)
+    result.sort((a, b) => {
+      const dateA = a.order_date ? parseDateTR(a.order_date).getTime() : 0;
+      const dateB = b.order_date ? parseDateTR(b.order_date).getTime() : 0;
+      return dateB - dateA;
+    });
     return result;
   }, [orders, searchQuery]);
 
@@ -222,7 +330,7 @@ const App: React.FC = () => {
       case 'blending':
         return <Blending orders={orders} />;
       case 'entry-analysis':
-        return <EntryAnalysis orders={orders} />;
+        return <EntryAnalysis orders={orders} analyses={analyses} onUpdateAnalyses={setAnalyses} />;
       case 'exit-analysis':
         return <ExitAnalysisPage />;
       case 'archived':
@@ -277,8 +385,8 @@ const App: React.FC = () => {
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDropOnStage(e, stage)}
                       className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeStage === stage
-                          ? 'bg-white text-emerald-600 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-white text-emerald-600 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
                         }`}
                     >
                       <Package size={16} className={activeStage === stage ? 'text-emerald-500' : 'text-slate-400'} />
@@ -334,6 +442,26 @@ const App: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Çoklu seçim banner'ı */}
+              {selectedOrderIds.size > 0 && (
+                <div className="bg-emerald-500 text-white px-4 py-3 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 rounded-lg p-2">
+                      <Package size={18} />
+                    </div>
+                    <span className="font-semibold">{selectedOrderIds.size} sipariş seçili</span>
+                    <span className="text-emerald-100 text-sm">• Başka bir aşamaya sürükleyerek toplu taşıyın</span>
+                  </div>
+                  <button
+                    onClick={clearSelection}
+                    className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Seçimi Temizle
+                  </button>
+                </div>
+              )}
+
               <div className="flex flex-col gap-3">
                 {filteredOrders.length > 0 ? (
                   filteredOrders.map(order => (
@@ -342,6 +470,9 @@ const App: React.FC = () => {
                       order={order}
                       onDragStart={handleDragStart}
                       onClick={setSelectedOrderForDetails}
+                      isSelected={selectedOrderIds.has(order.id)}
+                      onSelect={handleSelectOrder}
+                      selectedCount={selectedOrderIds.size}
                     />
                   ))
                 ) : (

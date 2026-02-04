@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Calculator, Truck, DollarSign, Paperclip, FileText, Calendar as CalendarIcon, Check, Hash, Info, User, Package, MapPin, Edit3, Save, RotateCcw, TrendingUp, AlertTriangle, Trash2, Ship, Bookmark, CreditCard, MessageSquare, CheckCircle2, Archive, ArchiveRestore, Droplets, Scissors, Microscope, Flame, Thermometer, Timer, Activity, Users, Zap, Search, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Calculator, Truck, DollarSign, Paperclip, FileText, Calendar as CalendarIcon, Check, Hash, Info, User, Package, MapPin, Edit3, Save, RotateCcw, TrendingUp, AlertTriangle, Trash2, Ship, Bookmark, CreditCard, MessageSquare, CheckCircle2, Archive, ArchiveRestore, Droplets, Scissors, Microscope, Flame, Thermometer, Timer, Activity, Users, Zap, Search, Upload, ChevronLeft, ChevronRight, FileSpreadsheet, CheckCircle } from 'lucide-react';
 import { Grade, Stage, ContainerType, Order, PackagingType, PaymentStatus, AntrepoStatus, QualityAnalysis, ExitAnalysis } from '../types';
 import { GRADES, STAGES, PACKAGING_TYPES, ANTREPO_STATUS_OPTIONS } from '../constants';
 import { formatNumberTR, autoFormatDate, formatNumberWithThousands } from '../utils/formatters';
@@ -542,7 +542,7 @@ export const OrderDetailsDialog: React.FC<{
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${order.contract_no} - Detaylar`}>
-      <div className="space-y-6">
+      <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isEditing ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
@@ -562,54 +562,78 @@ export const OrderDetailsDialog: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-          <GenericField label="Kontrat No" field="contract_no" isEditing={isEditing} value={data.contract_no} onChange={updateField} />
-          <GenericField label="Tedarikçi" field="supplier" isEditing={isEditing} value={data.supplier} onChange={updateField} />
-          <GenericField label="Grade" field="grade" type="select" options={GRADES} isEditing={isEditing} value={data.grade} onChange={updateField} />
-          <GenericField label="Birim Fiyat ($/lb)" field="unit_price" type="number" isEditing={isEditing} value={data.unit_price} onChange={updateField} />
+        {/* Temel Bilgiler */}
+        <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Temel Bilgiler</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <GenericField label="Kontrat No" field="contract_no" isEditing={isEditing} value={data.contract_no} onChange={updateField} />
+            <GenericField label="Tedarikçi" field="supplier" isEditing={isEditing} value={data.supplier} onChange={updateField} />
+            <GenericField label="Grade" field="grade" type="select" options={GRADES} isEditing={isEditing} value={data.grade} onChange={updateField} />
+            <GenericField label="Mahsul Yılı" field="harvest_year" isEditing={isEditing} value={data.harvest_year} onChange={updateField} />
+            <GenericField label="Ambalaj" field="packaging_type" type="select" options={PACKAGING_TYPES} isEditing={isEditing} value={data.packaging_type} onChange={updateField} />
+            <GenericField label="Konteyner Tipi" field="container_type" type="select" options={['20DC', '40DC', '40HC']} isEditing={isEditing} value={data.container_type} onChange={updateField} />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <GenericField label="Miktar (KG)" field="total_kg" type="number" isEditing={isEditing} value={data.total_kg} onChange={updateField} />
-          <GenericField label="Miktar (LB)" field="total_lb" type="number" isEditing={isEditing} value={data.total_lb} onChange={updateField} />
+        {/* Fiyat Bilgileri */}
+        <div className="space-y-4 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+          <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Fiyat Bilgileri</h4>
+          <div className="grid grid-cols-3 gap-4">
+            <GenericField label="FOB Fiyat ($)" field="fob_price" type="number" isEditing={isEditing} value={data.fob_price} onChange={updateField} />
+            <GenericField label="CNF Fiyat ($)" field="cnf_price" type="number" isEditing={isEditing} value={data.cnf_price} onChange={updateField} />
+            <GenericField label="Navlun ($)" field="freight_price" type="number" isEditing={isEditing} value={data.freight_price} onChange={updateField} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <GenericField label="Birim Fiyat ($/lb)" field="unit_price" type="number" isEditing={isEditing} value={data.unit_price} onChange={updateField} />
+            <GenericField label="Toplam Tutar ($)" field="total_price" type="number" isEditing={false} value={data.total_price} onChange={updateField} />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <GenericField label="Sipariş Tarihi" field="order_date" type="date" isEditing={isEditing} value={data.order_date} onChange={updateField} />
-          {data.etd && (
+        {/* Miktar Bilgileri */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Miktar Bilgileri</h4>
+          <div className="grid grid-cols-3 gap-4">
+            <GenericField label="Miktar (KG)" field="total_kg" type="number" isEditing={isEditing} value={data.total_kg} onChange={updateField} />
+            <GenericField label="Miktar (LB)" field="total_lb" type="number" isEditing={isEditing} value={data.total_lb} onChange={updateField} />
+            <GenericField label="FCL Sayısı" field="fcl_count" type="number" isEditing={isEditing} value={data.fcl_count} onChange={updateField} />
+          </div>
+        </div>
+
+        {/* Tarih Bilgileri */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tarih Bilgileri</h4>
+          <div className="grid grid-cols-3 gap-4">
+            <GenericField label="Sipariş Tarihi" field="order_date" type="date" isEditing={isEditing} value={data.order_date} onChange={updateField} />
             <GenericField label="ETD" field="etd" type="date" isEditing={isEditing} value={data.etd} onChange={updateField} />
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          {data.eta && (
             <GenericField label="ETA" field="eta" type="date" isEditing={isEditing} value={data.eta} onChange={updateField} />
-          )}
-          {data.vessel_name && (
-            <GenericField label="Gemi" field="vessel_name" isEditing={isEditing} value={data.vessel_name} onChange={updateField} />
-          )}
+          </div>
         </div>
 
-        {['Yolda', 'Limanda', 'Antrepoda', 'Depoda'].includes(data.stage || '') && (
-          <div className="space-y-4 border-t border-slate-100 pt-4">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lojistik & Gümrük</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <GenericField label="B/L No" field="bl_no" isEditing={isEditing} value={data.bl_no} onChange={updateField} />
-              <GenericField label="Konteyner No" field="container_no" isEditing={isEditing} value={data.container_no} onChange={updateField} />
-            </div>
+        {/* Lojistik Bilgileri */}
+        <div className="space-y-4 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+          <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Lojistik & Nakliye</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <GenericField label="Gemi Adı" field="vessel_name" isEditing={isEditing} value={data.vessel_name} onChange={updateField} />
+            <GenericField label="Booking No" field="booking_no" isEditing={isEditing} value={data.booking_no} onChange={updateField} />
+            <GenericField label="B/L No" field="bl_no" isEditing={isEditing} value={data.bl_no} onChange={updateField} />
+            <GenericField label="Konteyner No" field="container_no" isEditing={isEditing} value={data.container_no} onChange={updateField} />
+            <GenericField label="Tır No" field="truck_no" isEditing={isEditing} value={data.truck_no} onChange={updateField} />
+            <GenericField label="AN Ref No" field="an_ref_no" isEditing={isEditing} value={data.an_ref_no} onChange={updateField} />
           </div>
-        )}
+        </div>
 
-        {['Antrepoda', 'Depoda'].includes(data.stage || '') && (
-          <div className="space-y-4 border-t border-slate-100 pt-4">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Antrepo & Analiz</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <GenericField label="Antrepo Durumu" field="antrepo_status" type="select" options={ANTREPO_STATUS_OPTIONS} isEditing={isEditing} value={data.antrepo_status} onChange={updateField} />
-              <GenericField label="Tarım Onayı" field="is_agriculture_approved" type="checkbox" isEditing={isEditing} value={data.is_agriculture_approved} onChange={updateField} />
-            </div>
+        {/* Antrepo & Gümrük */}
+        <div className="space-y-4 bg-amber-50/50 p-4 rounded-2xl border border-amber-100">
+          <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Antrepo & Gümrük</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <GenericField label="Antrepo Beyan No" field="antrepo_declaration_no" isEditing={isEditing} value={data.antrepo_declaration_no} onChange={updateField} />
+            <GenericField label="Antrepo Durumu" field="antrepo_status" type="select" options={ANTREPO_STATUS_OPTIONS} isEditing={isEditing} value={data.antrepo_status} onChange={updateField} />
+            <GenericField label="Tarım Onayı" field="is_agriculture_approved" type="checkbox" isEditing={isEditing} value={data.is_agriculture_approved} onChange={updateField} />
+            <GenericField label="Ödeme Durumu" field="payment_status" type="select" options={['Ödendi', 'Ödeme bekliyor', 'Kısmi ödeme']} isEditing={isEditing} value={data.payment_status} onChange={updateField} />
           </div>
-        )}
+        </div>
 
+        {/* Özet Hesaplama */}
         <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2"><Calculator size={20} className="text-teal-400" /><span className="text-xs font-bold uppercase tracking-widest">Tahmini Tahakkuk</span></div>
@@ -621,6 +645,7 @@ export const OrderDetailsDialog: React.FC<{
           </div>
         </div>
 
+        {/* Notlar */}
         <GenericField label="Genel Notlar" field="note" type="textarea" isEditing={isEditing} value={data.note} onChange={updateField} />
       </div>
     </Modal>
@@ -631,46 +656,148 @@ export const OrderDetailsDialog: React.FC<{
 export const ImportDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onImport: (data: Omit<Order, 'id' | 'stage'>[]) => void;
+  onImport: (orders: Omit<Order, 'id'>[], analyses: QualityAnalysis[]) => void;
 }> = ({ isOpen, onClose, onImport }) => {
-  const [jsonText, setJsonText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<{
+    orders: Omit<Order, 'id'>[];
+    analyses: Omit<QualityAnalysis, 'id'>[];
+    errors: string[];
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImport = () => {
+  // Modal kapandığında state'i temizle
+  useEffect(() => {
+    if (!isOpen) {
+      setFile(null);
+      setImportResult(null);
+      setError(null);
+      setIsLoading(false);
+    }
+  }, [isOpen]);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    if (!selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls')) {
+      setError('Lütfen bir Excel dosyası (.xlsx veya .xls) seçin.');
+      return;
+    }
+
+    setFile(selectedFile);
+    setError(null);
+    setIsLoading(true);
+
     try {
-      const parsed = JSON.parse(jsonText);
-      if (Array.isArray(parsed)) {
-        onImport(parsed);
-        setJsonText('');
-        setError(null);
-        onClose();
-      } else {
-        setError('Lütfen bir dizi (array) formatında JSON giriniz.');
+      // Dinamik import ile xlsx modülünü yükle
+      const { parseExcelFile } = await import('../utils/excelImporter');
+      const result = await parseExcelFile(selectedFile);
+      setImportResult(result);
+
+      if (result.errors.length > 0) {
+        console.warn('Import uyarıları:', result.errors);
       }
-    } catch (e) {
-      setError('Geçersiz JSON formatı.');
+    } catch (err) {
+      setError(`Dosya okunamadı: ${err}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleImport = () => {
+    if (!importResult) return;
+
+    // Analyses için id ekle
+    const analysesWithId = importResult.analyses.map(a => ({
+      ...a,
+      id: crypto.randomUUID()
+    })) as QualityAnalysis[];
+
+    onImport(importResult.orders, analysesWithId);
+    onClose();
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Verileri İçe Aktar (JSON)">
+    <Modal isOpen={isOpen} onClose={onClose} title="Excel'den İçe Aktar">
       <div className="space-y-4">
-        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
-          <Info className="text-blue-500 mt-1" size={18} />
-          <p className="text-xs text-blue-800 font-medium leading-relaxed">
-            Sipariş verilerini JSON formatında toplu olarak içe aktarabilirsiniz. Beklenen format bir objedir dizisidir.
-          </p>
+        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex items-start gap-3">
+          <FileSpreadsheet className="text-emerald-500 mt-1" size={18} />
+          <div className="text-xs text-emerald-800 font-medium leading-relaxed">
+            <p className="font-bold mb-1">Desteklenen Sayfalar:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li><strong>SATIN ALMA</strong> → Siparişler</li>
+              <li><strong>GİRİŞ ANALİZİ</strong> → Kalite Analizleri</li>
+            </ul>
+          </div>
         </div>
-        <textarea
-          value={jsonText}
-          onChange={(e) => setJsonText(e.target.value)}
-          className="w-full h-64 p-4 bg-slate-900 text-white rounded-xl text-xs font-mono placeholder-slate-500 outline-none resize-none"
-          placeholder='[{"contract_no": "CONT-001", "supplier": "A Corp", "grade": "WW320", "unit_price": 3.5, ...}]'
-        />
+
+        {/* Dosya Seçimi */}
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${file ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 hover:border-emerald-400 hover:bg-slate-50'
+            }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          {isLoading ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-slate-500">Dosya işleniyor...</p>
+            </div>
+          ) : file ? (
+            <div className="flex flex-col items-center gap-2">
+              <FileSpreadsheet size={32} className="text-emerald-500" />
+              <p className="text-sm font-bold text-slate-700">{file.name}</p>
+              <p className="text-xs text-slate-400">Başka dosya seçmek için tıklayın</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <Upload size={32} className="text-slate-300" />
+              <p className="text-sm font-bold text-slate-500">Excel Dosyası Seçin</p>
+              <p className="text-xs text-slate-400">.xlsx veya .xls</p>
+            </div>
+          )}
+        </div>
+
+        {/* Sonuç Özeti */}
+        {importResult && (
+          <div className="bg-slate-900 text-white p-4 rounded-2xl space-y-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-emerald-400" />
+              <span className="text-xs font-bold uppercase tracking-wider">İçe Aktarılacak Veriler</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-800 p-3 rounded-xl">
+                <p className="text-2xl font-black text-emerald-400">{importResult.orders.length}</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold">Sipariş</p>
+              </div>
+              <div className="bg-slate-800 p-3 rounded-xl">
+                <p className="text-2xl font-black text-blue-400">{importResult.analyses.length}</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold">Giriş Analizi</p>
+              </div>
+            </div>
+            {importResult.errors.length > 0 && (
+              <div className="bg-orange-500/20 p-2 rounded-lg">
+                <p className="text-[10px] text-orange-300 font-bold">{importResult.errors.length} uyarı (konsola bakın)</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {error && <p className="text-rose-500 text-xs font-bold">{error}</p>}
+
         <button
           onClick={handleImport}
-          className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+          disabled={!importResult || (importResult.orders.length === 0 && importResult.analyses.length === 0)}
+          className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-emerald-100 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Upload size={16} /> Verileri İçe Aktar
         </button>

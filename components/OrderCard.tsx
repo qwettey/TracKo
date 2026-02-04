@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Calendar, Wheat, Hash, Truck, Ship, Clock, AlertCircle, Archive, DollarSign, Package, Anchor } from 'lucide-react';
+import { Calendar, Wheat, Hash, Truck, Ship, Clock, AlertCircle, Archive, DollarSign, Package, Anchor, CheckCircle2 } from 'lucide-react';
 import { Order } from '../types';
 import { formatNumberTR } from '../utils/formatters';
 
@@ -8,9 +8,12 @@ interface OrderCardProps {
   order: Order;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onClick: (order: Order) => void;
+  isSelected?: boolean;
+  onSelect?: (orderId: string, isCtrlPressed: boolean) => void;
+  selectedCount?: number;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick }) => {
+const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick, isSelected = false, onSelect, selectedCount = 0 }) => {
   const handleLocalDragStart = (e: React.DragEvent) => {
     if (order.is_archived) return;
     const dragPreview = document.createElement('div');
@@ -22,14 +25,34 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick }) =>
     dragPreview.style.position = 'absolute';
     dragPreview.style.top = '-1000px';
     dragPreview.style.boxShadow = '0 10px 15px -3px rgb(0 0 0 / 0.1)';
-    dragPreview.innerHTML = `
-      <div style="font-size: 10px; font-weight: bold; color: #64748b;">${order.contract_no}</div>
-      <div style="font-size: 12px; font-weight: 800; color: #064e3b;">${order.grade}</div>
-    `;
+
+    // Çoklu seçim varsa sayıyı göster
+    if (selectedCount > 1 && isSelected) {
+      dragPreview.innerHTML = `
+        <div style="font-size: 10px; font-weight: bold; color: #64748b;">${selectedCount} sipariş seçili</div>
+        <div style="font-size: 12px; font-weight: 800; color: #064e3b;">Toplu Taşıma</div>
+      `;
+    } else {
+      dragPreview.innerHTML = `
+        <div style="font-size: 10px; font-weight: bold; color: #64748b;">${order.contract_no}</div>
+        <div style="font-size: 12px; font-weight: 800; color: #064e3b;">${order.grade}</div>
+      `;
+    }
     document.body.appendChild(dragPreview);
     e.dataTransfer.setDragImage(dragPreview, 80, 20);
     setTimeout(() => { document.body.removeChild(dragPreview); }, 0);
     onDragStart(e, order.id);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    // CTRL tuşuna basılıysa seçim moduna geç
+    if (e.ctrlKey && onSelect) {
+      e.preventDefault();
+      e.stopPropagation();
+      onSelect(order.id, true);
+    } else {
+      onClick(order);
+    }
   };
 
   const isPaymentPending = order.payment_status === 'Ödeme bekliyor';
@@ -46,11 +69,28 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick }) =>
     <div
       draggable={!order.is_archived}
       onDragStart={handleLocalDragStart}
-      onClick={() => onClick(order)}
-      className={`bg-white px-4 py-3 rounded-lg border border-slate-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer group relative ${order.is_archived ? 'opacity-70 grayscale-[0.3]' : ''}`}
+      onClick={handleClick}
+      className={`bg-white px-4 py-3 rounded-lg border-2 transition-all cursor-pointer group relative ${order.is_archived
+          ? 'opacity-70 grayscale-[0.3] border-slate-200'
+          : isSelected
+            ? 'border-emerald-500 bg-emerald-50/50 shadow-md ring-2 ring-emerald-200'
+            : 'border-slate-200 hover:border-emerald-300 hover:shadow-md'
+        }`}
     >
+      {/* Seçim göstergesi */}
+      {isSelected && (
+        <div className="absolute -top-2 -right-2 bg-emerald-500 text-white rounded-full p-1 shadow-lg z-10">
+          <CheckCircle2 size={16} />
+        </div>
+      )}
+
       {/* Sol kenar çizgisi */}
-      <div className={`absolute top-0 left-0 w-1 h-full rounded-l-lg ${order.is_archived ? 'bg-slate-300' : (isPaymentPending ? 'bg-rose-500' : 'bg-emerald-500/20 group-hover:bg-emerald-500')} transition-colors`} />
+      <div className={`absolute top-0 left-0 w-1 h-full rounded-l-lg ${order.is_archived
+          ? 'bg-slate-300'
+          : isSelected
+            ? 'bg-emerald-500'
+            : (isPaymentPending ? 'bg-rose-500' : 'bg-emerald-500/20 group-hover:bg-emerald-500')
+        } transition-colors`} />
 
       {/* Ana satır içeriği */}
       <div className="flex items-center gap-6 pl-3 overflow-x-auto">
@@ -68,8 +108,8 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick }) =>
         <div className="flex flex-col min-w-[70px]">
           <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Grade</span>
           <span className={`mt-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase w-fit ${order.grade === 'WW320' ? 'bg-indigo-100 text-indigo-700' :
-              order.grade === 'WW240' ? 'bg-cyan-100 text-cyan-700' :
-                'bg-orange-100 text-orange-700'
+            order.grade === 'WW240' ? 'bg-cyan-100 text-cyan-700' :
+              'bg-orange-100 text-orange-700'
             }`}>
             {order.grade}
           </span>
@@ -150,3 +190,4 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick }) =>
 };
 
 export default OrderCard;
+
