@@ -402,14 +402,17 @@ export const NewOrderDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: Omit<Order, 'id' | 'stage'>) => void;
-}> = ({ isOpen, onClose, onSave }) => {
+  latestFreightPrice: number;
+}> = ({ isOpen, onClose, onSave, latestFreightPrice }) => {
   const [data, setData] = useState<Partial<Order>>({
     contract_no: '',
     supplier: '',
     grade: 'WW320',
     packaging_type: 'Vakum',
     order_date: new Date().toLocaleDateString('tr-TR'),
-    unit_price: 0,
+    fob_price: 0,
+    freight_price: 0,
+    cnf_price: 0,
     fcl_count: 1,
     container_type: "40'",
     total_kg: 24948,
@@ -427,7 +430,9 @@ export const NewOrderDialog: React.FC<{
         grade: 'WW320',
         packaging_type: 'Vakum',
         order_date: new Date().toLocaleDateString('tr-TR'),
-        unit_price: 0,
+        fob_price: 0,
+        freight_price: latestFreightPrice,
+        cnf_price: 0,
         fcl_count: 1,
         container_type: "40'",
         total_kg: 24948,
@@ -436,7 +441,7 @@ export const NewOrderDialog: React.FC<{
         note: ''
       });
     }
-  }, [isOpen]);
+  }, [isOpen, latestFreightPrice]);
 
   const updateField = (field: string, val: any) => {
     setData(prev => {
@@ -446,8 +451,16 @@ export const NewOrderDialog: React.FC<{
       } else if (field === 'total_lb') {
         next.total_kg = Math.round(Number(val) / 2.20462);
       }
-      if (next.unit_price !== undefined && next.total_lb !== undefined) {
-        next.total_price = next.unit_price * next.total_lb;
+      // FOB değişirse CNF hesapla
+      if (field === 'fob_price' || field === 'freight_price') {
+        const fob = field === 'fob_price' ? Number(val) : (next.fob_price || 0);
+        const freight = field === 'freight_price' ? Number(val) : (next.freight_price || 0);
+        const totalLb = next.total_lb || 55000;
+        next.cnf_price = fob + (freight / totalLb);
+      }
+      // total_price hesapla (fob_price * total_lb)
+      if (next.fob_price !== undefined && next.total_lb !== undefined) {
+        next.total_price = next.fob_price * next.total_lb;
       }
       return next;
     });
@@ -475,7 +488,16 @@ export const NewOrderDialog: React.FC<{
         <div className="grid grid-cols-3 gap-4">
           <GenericField label="FCL Adet" field="fcl_count" type="number" value={data.fcl_count} onChange={updateField} />
           <GenericField label="Boyut" field="container_type" type="select" options={["20'", "40'"]} value={data.container_type} onChange={updateField} />
-          <GenericField label="Birim Fiyat ($/lb)" field="unit_price" type="number" value={data.unit_price} onChange={updateField} />
+          <GenericField label="FOB Fiyat ($/lb)" field="fob_price" type="number" value={data.fob_price} onChange={updateField} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <GenericField label="Navlun ($)" field="freight_price" type="number" value={data.freight_price} onChange={updateField} />
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CNF Fiyat ($/lb)</label>
+            <div className="p-3 bg-slate-100 rounded-xl text-sm font-bold text-slate-700">
+              ${(data.cnf_price || 0).toFixed(2)}
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <GenericField label="Toplam KG" field="total_kg" type="number" value={data.total_kg} onChange={updateField} />
@@ -494,10 +516,12 @@ export const OrderDetailsDialog: React.FC<{
   onClose: () => void;
   order: Order | null;
   onSave: (id: string, data: Partial<Order>) => void;
+  onDelete: (id: string) => void;
   latestFreightPrice: number;
-}> = ({ isOpen, onClose, order, onSave, latestFreightPrice }) => {
+}> = ({ isOpen, onClose, order, onSave, onDelete, latestFreightPrice }) => {
   const [data, setData] = useState<Partial<Order>>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (order) {
@@ -515,10 +539,29 @@ export const OrderDetailsDialog: React.FC<{
         next.total_kg = Math.round(Number(val) / 2.20462);
       }
 
-      // Recalculate total price if quantities or unit price change
-      const unitPrice = Number(next.unit_price) || 0;
-      const totalLb = Number(next.total_lb) || 0;
-      next.total_price = unitPrice * totalLb;
+      const totalLb = Number(next.total_lb) || 55000;
+      const freight = Number(next.freight_price) || 0;
+
+      // FOB değişirse CNF hesapla
+      if (field === 'fob_price') {
+        const fob = Number(val) || 0;
+        next.cnf_price = fob + (freight / totalLb);
+      }
+      // CNF değişirse FOB hesapla (ters yön)
+      else if (field === 'cnf_price') {
+        const cnf = Number(val) || 0;
+        next.fob_price = cnf - (freight / totalLb);
+      }
+      // Navlun değişirse CNF güncelle (FOB sabit kalarak)
+      else if (field === 'freight_price') {
+        const fob = Number(next.fob_price) || 0;
+        const newFreight = Number(val) || 0;
+        next.cnf_price = fob + (newFreight / totalLb);
+      }
+
+      // total_price hesapla (fob_price * total_lb)
+      const fobPrice = Number(next.fob_price) || 0;
+      next.total_price = fobPrice * totalLb;
 
       return next;
     });
@@ -559,6 +602,12 @@ export const OrderDetailsDialog: React.FC<{
             <button onClick={toggleArchive} className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase px-3 py-1.5 hover:bg-slate-50 rounded-lg transition-colors">
               {data.is_archived ? <ArchiveRestore size={14} /> : <Archive size={14} />} {data.is_archived ? 'Arşivden Çıkar' : 'Arşive Gönder'}
             </button>
+            <button
+              onClick={() => setIsDeleteConfirmOpen(true)}
+              className="flex items-center gap-2 text-rose-500 font-bold text-xs uppercase px-3 py-1.5 hover:bg-rose-50 rounded-lg transition-colors"
+            >
+              <Trash2 size={14} /> Sil
+            </button>
           </div>
         </div>
 
@@ -579,12 +628,11 @@ export const OrderDetailsDialog: React.FC<{
         <div className="space-y-4 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
           <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Fiyat Bilgileri</h4>
           <div className="grid grid-cols-3 gap-4">
-            <GenericField label="FOB Fiyat ($)" field="fob_price" type="number" isEditing={isEditing} value={data.fob_price} onChange={updateField} />
-            <GenericField label="CNF Fiyat ($)" field="cnf_price" type="number" isEditing={isEditing} value={data.cnf_price} onChange={updateField} />
+            <GenericField label="FOB Fiyat ($/lb)" field="fob_price" type="number" isEditing={isEditing} value={data.fob_price} onChange={updateField} />
             <GenericField label="Navlun ($)" field="freight_price" type="number" isEditing={isEditing} value={data.freight_price} onChange={updateField} />
+            <GenericField label="CNF Fiyat ($/lb)" field="cnf_price" type="number" isEditing={isEditing} value={data.cnf_price} onChange={updateField} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <GenericField label="Birim Fiyat ($/lb)" field="unit_price" type="number" isEditing={isEditing} value={data.unit_price} onChange={updateField} />
+          <div className="grid grid-cols-1 gap-4">
             <GenericField label="Toplam Tutar ($)" field="total_price" type="number" isEditing={false} value={data.total_price} onChange={updateField} />
           </div>
         </div>
@@ -648,6 +696,20 @@ export const OrderDetailsDialog: React.FC<{
         {/* Notlar */}
         <GenericField label="Genel Notlar" field="note" type="textarea" isEditing={isEditing} value={data.note} onChange={updateField} />
       </div>
+
+      <DeleteConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={() => {
+          if (order) {
+            onDelete(order.id);
+            setIsDeleteConfirmOpen(false);
+            onClose(); // Detay penceresini de kapat
+          }
+        }}
+        title="Siparişi Sil"
+        message={`"${order.contract_no}" numaralı siparişi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
+      />
     </Modal>
   );
 };

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { Calendar, Wheat, Hash, Truck, Ship, Clock, AlertCircle, Archive, DollarSign, Package, Anchor, CheckCircle2 } from 'lucide-react';
 import { Order } from '../types';
 import { formatNumberTR } from '../utils/formatters';
@@ -14,6 +14,20 @@ interface OrderCardProps {
 }
 
 const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick, isSelected = false, onSelect, selectedCount = 0 }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Yatay scroll için wheel event handler
+  const handleWheel = (e: React.WheelEvent) => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      // Sadece içerik scroll edilebilirse çalış
+      if (container.scrollWidth > container.clientWidth) {
+        container.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    }
+  };
+
   const handleLocalDragStart = (e: React.DragEvent) => {
     if (order.is_archived) return;
     const dragPreview = document.createElement('div');
@@ -71,10 +85,10 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick, isSe
       onDragStart={handleLocalDragStart}
       onClick={handleClick}
       className={`bg-white px-4 py-3 rounded-lg border-2 transition-all cursor-pointer group relative ${order.is_archived
-          ? 'opacity-70 grayscale-[0.3] border-slate-200'
-          : isSelected
-            ? 'border-emerald-500 bg-emerald-50/50 shadow-md ring-2 ring-emerald-200'
-            : 'border-slate-200 hover:border-emerald-300 hover:shadow-md'
+        ? 'opacity-70 grayscale-[0.3] border-slate-200'
+        : isSelected
+          ? 'border-emerald-500 bg-emerald-50/50 shadow-md ring-2 ring-emerald-200'
+          : 'border-slate-200 hover:border-emerald-300 hover:shadow-md'
         }`}
     >
       {/* Seçim göstergesi */}
@@ -86,14 +100,18 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onDragStart, onClick, isSe
 
       {/* Sol kenar çizgisi */}
       <div className={`absolute top-0 left-0 w-1 h-full rounded-l-lg ${order.is_archived
-          ? 'bg-slate-300'
-          : isSelected
-            ? 'bg-emerald-500'
-            : (isPaymentPending ? 'bg-rose-500' : 'bg-emerald-500/20 group-hover:bg-emerald-500')
+        ? 'bg-slate-300'
+        : isSelected
+          ? 'bg-emerald-500'
+          : (isPaymentPending ? 'bg-rose-500' : 'bg-emerald-500/20 group-hover:bg-emerald-500')
         } transition-colors`} />
 
       {/* Ana satır içeriği */}
-      <div className="flex items-center gap-6 pl-3 overflow-x-auto">
+      <div
+        ref={scrollContainerRef}
+        onWheel={handleWheel}
+        className="flex items-center gap-6 pl-3 overflow-x-auto pb-2 scrollbar-visible"
+      >
 
         {/* 1. Sipariş Tarihi */}
         <Cell label="Sipariş Tarihi" value={order.order_date} className="min-w-[90px]" />

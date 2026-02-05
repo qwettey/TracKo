@@ -201,6 +201,11 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteOrder = (id: string) => {
+    setOrders(prev => prev.filter(o => o.id !== id));
+    setSelectedOrderForDetails(null);
+  };
+
   const handleDropOnStage = (e: React.DragEvent, targetStage: Stage) => {
     e.preventDefault();
 
@@ -510,6 +515,7 @@ const App: React.FC = () => {
         isOpen={isNewOrderModalOpen}
         onClose={() => setIsNewOrderModalOpen(false)}
         onSave={handleCreateOrder}
+        latestFreightPrice={latestFreightPrice}
       />
       <ImportDialog
         isOpen={isImportModalOpen}
@@ -521,6 +527,7 @@ const App: React.FC = () => {
         onClose={() => setSelectedOrderForDetails(null)}
         order={selectedOrderForDetails}
         onSave={handleUpdateOrder}
+        onDelete={handleDeleteOrder}
         latestFreightPrice={latestFreightPrice}
       />
       {transitionModal && (
