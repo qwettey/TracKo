@@ -1,5 +1,8 @@
 
+export type ProductType = 'kaju' | 'ceviz';
+
 export type Grade = 'WW320' | 'WW240' | 'WW180';
+
 
 export type Stage = 'Sipariş' | 'Yüklendi' | 'Yolda' | 'Limanda' | 'Antrepoda' | 'Depoda';
 

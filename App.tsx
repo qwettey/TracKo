@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Search, Plus, Filter, LayoutGrid, Clock, Package, Archive } from 'lucide-react';
-import { Order, Stage, Grade, PriceRecord, FreightRecord, QualityAnalysis } from './types';
+import { Order, Stage, Grade, PriceRecord, FreightRecord, QualityAnalysis, ProductType } from './types';
 import { STAGES, INITIAL_ORDERS, GRADES } from './constants';
 import { parseDateTR, isWithinNext10Days, formatNumberTR } from './utils/formatters';
 import Header from './components/Header';
@@ -19,23 +19,42 @@ import ExitAnalysisPage from './pages/ExitAnalysis';
 import { NewOrderDialog, TransitionDialog, OrderDetailsDialog, ImportDialog } from './components/Dialogs';
 
 
+const DEFAULT_PRICE_HISTORY: PriceRecord[] = [
+  { id: '1', date: '20.05.2024', grade: 'WW320', price: 3.85, change: '+0,05', status: 'up' },
+  { id: '2', date: '18.05.2024', grade: 'WW240', price: 4.10, change: '-0,10', status: 'down' },
+  { id: '3', date: '15.05.2024', grade: 'WW180', price: 4.50, change: '0,00', status: 'stable' },
+  { id: '4', date: '10.05.2024', grade: 'WW320', price: 3.80, change: '+0,10', status: 'up' },
+  { id: '5', date: '05.05.2024', grade: 'WW240', price: 4.20, change: '+0,05', status: 'up' },
+];
+
+const DEFAULT_FREIGHT_HISTORY: FreightRecord[] = [
+  { id: '1', date: '22.05.2024', price: 4200, change: '+200,00', status: 'up' },
+  { id: '2', date: '15.05.2024', price: 4000, change: '-150,00', status: 'down' },
+  { id: '3', date: '01.05.2024', price: 4150, change: '0,00', status: 'stable' },
+];
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  const saved = localStorage.getItem(key);
+  if (saved) { try { return JSON.parse(saved); } catch { return fallback; } }
+  return fallback;
+}
+
 const App: React.FC = () => {
+  // --- PRODUCT TYPE STATE ---
+  const [productType, setProductType] = useState<ProductType>(() =>
+    (localStorage.getItem('tracko_product_type') as ProductType) || 'kaju'
+  );
+
+  const storageKey = (base: string) => `${base}_${productType}`;
+
   // --- NAVIGATION STATE ---
   const [currentPage, setCurrentPage] = useState<'home' | 'prices' | 'freight' | 'archived' | 'price-stats' | 'prod-stats' | 'prod-tracking' | 'blending' | 'entry-analysis' | 'exit-analysis'>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // --- ORDER STATE (with localStorage persistence) ---
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('tracko_orders');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_ORDERS;
-      }
-    }
-    return INITIAL_ORDERS;
-  });
+  // --- ORDER STATE ---
+  const [orders, setOrders] = useState<Order[]>(() =>
+    loadFromStorage(storageKey('tracko_orders'), INITIAL_ORDERS)
+  );
   const [activeStage, setActiveStage] = useState<Stage>('Depoda');
   const [searchQuery, setSearchQuery] = useState('');
   const [gradeFilter, setGradeFilter] = useState<Grade | 'All'>('All');
@@ -43,42 +62,42 @@ const App: React.FC = () => {
   const [sortBy, setSortBy] = useState<'ETA_NEAR' | 'CONTRACT_NO'>('CONTRACT_NO');
 
   // --- PRICE STATE ---
-  const [priceHistory, setPriceHistory] = useState<PriceRecord[]>([
-    { id: '1', date: '20.05.2024', grade: 'WW320', price: 3.85, change: '+0,05', status: 'up' },
-    { id: '2', date: '18.05.2024', grade: 'WW240', price: 4.10, change: '-0,10', status: 'down' },
-    { id: '3', date: '15.05.2024', grade: 'WW180', price: 4.50, change: '0,00', status: 'stable' },
-    { id: '4', date: '10.05.2024', grade: 'WW320', price: 3.80, change: '+0,10', status: 'up' },
-    { id: '5', date: '05.05.2024', grade: 'WW240', price: 4.20, change: '+0,05', status: 'up' },
-  ]);
+  const [priceHistory, setPriceHistory] = useState<PriceRecord[]>(() =>
+    loadFromStorage(storageKey('tracko_prices'), DEFAULT_PRICE_HISTORY)
+  );
 
   // --- FREIGHT STATE ---
-  const [freightHistory, setFreightHistory] = useState<FreightRecord[]>([
-    { id: '1', date: '22.05.2024', price: 4200, change: '+200,00', status: 'up' },
-    { id: '2', date: '15.05.2024', price: 4000, change: '-150,00', status: 'down' },
-    { id: '3', date: '01.05.2024', price: 4150, change: '0,00', status: 'stable' },
-  ]);
+  const [freightHistory, setFreightHistory] = useState<FreightRecord[]>(() =>
+    loadFromStorage(storageKey('tracko_freight'), DEFAULT_FREIGHT_HISTORY)
+  );
 
-  // --- ANALYSIS STATE (with localStorage persistence) ---
-  const [analyses, setAnalyses] = useState<QualityAnalysis[]>(() => {
-    const saved = localStorage.getItem('tracko_analyses');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  // --- ANALYSIS STATE ---
+  const [analyses, setAnalyses] = useState<QualityAnalysis[]>(() =>
+    loadFromStorage(storageKey('tracko_analyses'), [])
+  );
+
+  // Ürün tipi değişince tüm state'leri yeniden yükle
+  useEffect(() => {
+    localStorage.setItem('tracko_product_type', productType);
+    setOrders(loadFromStorage(storageKey('tracko_orders'), productType === 'kaju' ? INITIAL_ORDERS : []));
+    setPriceHistory(loadFromStorage(storageKey('tracko_prices'), DEFAULT_PRICE_HISTORY));
+    setFreightHistory(loadFromStorage(storageKey('tracko_freight'), DEFAULT_FREIGHT_HISTORY));
+    setAnalyses(loadFromStorage(storageKey('tracko_analyses'), []));
+    setActiveStage('Depoda');
+    setSearchQuery('');
+    setCurrentPage('home');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productType]);
 
   // Save to localStorage when data changes
-  useEffect(() => {
-    localStorage.setItem('tracko_orders', JSON.stringify(orders));
-  }, [orders]);
+  useEffect(() => { localStorage.setItem(storageKey('tracko_orders'), JSON.stringify(orders)); }, [orders, productType]);
+  useEffect(() => { localStorage.setItem(storageKey('tracko_analyses'), JSON.stringify(analyses)); }, [analyses, productType]);
+  useEffect(() => { localStorage.setItem(storageKey('tracko_prices'), JSON.stringify(priceHistory)); }, [priceHistory, productType]);
+  useEffect(() => { localStorage.setItem(storageKey('tracko_freight'), JSON.stringify(freightHistory)); }, [freightHistory, productType]);
 
-  useEffect(() => {
-    localStorage.setItem('tracko_analyses', JSON.stringify(analyses));
-  }, [analyses]);
+  const handleProductToggle = () => {
+    setProductType(prev => prev === 'kaju' ? 'ceviz' : 'kaju');
+  };
 
   // Latest freight for calculations
   const latestFreightPrice = useMemo(() => {
@@ -501,12 +520,15 @@ const App: React.FC = () => {
         onClose={() => setIsSidebarOpen(false)}
         currentPage={currentPage}
         onNavigate={setCurrentPage}
+        productType={productType}
+        onProductToggle={handleProductToggle}
       />
       <Header
         onNewOrder={() => setIsNewOrderModalOpen(true)}
         onImport={() => setIsImportModalOpen(true)}
         onMenuToggle={() => setIsSidebarOpen(true)}
         onNavigateHome={() => setCurrentPage('home')}
+        productType={productType}
       />
       <main className="w-[95%] mx-auto mt-6 px-4 sm:px-6 lg:px-8">
         {renderContent()}

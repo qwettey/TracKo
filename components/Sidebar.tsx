@@ -1,28 +1,33 @@
 
 import React from 'react';
 import { X, Home, TrendingUp, ChevronRight, Ship, Archive, Waypoints, BarChart3, PieChart, FlaskConical, LayoutList, ClipboardCheck, Microscope } from 'lucide-react';
+import { ProductType } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   currentPage: 'home' | 'prices' | 'freight' | 'archived' | 'price-stats' | 'prod-stats' | 'prod-tracking' | 'blending' | 'entry-analysis' | 'exit-analysis';
   onNavigate: (page: 'home' | 'prices' | 'freight' | 'archived' | 'price-stats' | 'prod-stats' | 'prod-tracking' | 'blending' | 'entry-analysis' | 'exit-analysis') => void;
+  productType: ProductType;
+  onProductToggle: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavigate, productType, onProductToggle }) => {
+  const isCeviz = productType === 'ceviz';
+
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className={`fixed inset-0 bg-black/20 backdrop-blur-sm z-50 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
-      
+
       {/* Drawer */}
       <div className={`fixed inset-y-0 left-0 w-72 bg-white/90 backdrop-blur-xl z-50 shadow-2xl transform transition-transform duration-300 ease-out border-r border-slate-100 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full overflow-y-auto scrollbar-thin">
           <div className="p-6 flex items-center justify-between border-b border-slate-100 sticky top-0 bg-white/80 backdrop-blur-md z-10">
-            <div 
+            <div
               onClick={() => { onNavigate('home'); onClose(); }}
               className="flex items-center gap-3 cursor-pointer group active:scale-95 transition-transform"
             >
@@ -39,12 +44,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
             </button>
           </div>
 
+          {/* Ürün Tipi Toggle */}
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-2">Ürün</p>
+            <div
+              onClick={onProductToggle}
+              className={`relative cursor-pointer w-full h-14 rounded-2xl border-2 transition-all duration-300 flex items-center overflow-hidden select-none ${isCeviz
+                  ? 'border-amber-200 bg-amber-50'
+                  : 'border-teal-200 bg-teal-50'
+                }`}
+            >
+              {/* Sliding pill */}
+              <div className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] rounded-xl transition-all duration-300 shadow-sm ${isCeviz
+                  ? 'left-[calc(50%+3px)] bg-amber-500'
+                  : 'left-1.5 bg-teal-600'
+                }`} />
+              {/* Labels */}
+              <div className="relative z-10 flex w-full">
+                <div className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-300 ${!isCeviz ? 'text-white' : 'text-slate-400'}`}>
+                  <span>🥜</span>
+                  <span>Kaju</span>
+                </div>
+                <div className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-300 ${isCeviz ? 'text-white' : 'text-slate-400'}`}>
+                  <span>🌰</span>
+                  <span>Ceviz</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <nav className="flex-1 p-4 space-y-2">
             <div className="pb-1 px-2">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Genel</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Genel</span>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => { onNavigate('home'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'home' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -55,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
               {currentPage === 'home' && <ChevronRight size={14} />}
             </button>
 
-            <button 
+            <button
               onClick={() => { onNavigate('prices'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'prices' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -66,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
               {currentPage === 'prices' && <ChevronRight size={14} />}
             </button>
 
-            <button 
+            <button
               onClick={() => { onNavigate('freight'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'freight' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -79,10 +113,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
 
             {/* ÜRETİM SECTION */}
             <div className="pt-4 pb-1 px-2 border-t border-slate-100 mt-4">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Üretim</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Üretim</span>
             </div>
 
-            <button 
+            <button
               onClick={() => { onNavigate('prod-tracking'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'prod-tracking' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -93,7 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
               {currentPage === 'prod-tracking' && <ChevronRight size={14} />}
             </button>
 
-            <button 
+            <button
               onClick={() => { onNavigate('blending'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'blending' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -106,10 +140,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
 
             {/* ANALİZLER SECTION */}
             <div className="pt-4 pb-1 px-2 border-t border-slate-100 mt-4">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Analizler</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Analizler</span>
             </div>
 
-            <button 
+            <button
               onClick={() => { onNavigate('entry-analysis'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'entry-analysis' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -120,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
               {currentPage === 'entry-analysis' && <ChevronRight size={14} />}
             </button>
 
-            <button 
+            <button
               onClick={() => { onNavigate('exit-analysis'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'exit-analysis' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -133,10 +167,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
 
             {/* İSTATİSTİK SECTION */}
             <div className="pt-4 pb-1 px-2 border-t border-slate-100 mt-4">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">İstatistik</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">İstatistik</span>
             </div>
 
-            <button 
+            <button
               onClick={() => { onNavigate('price-stats'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'price-stats' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -147,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
               {currentPage === 'price-stats' && <ChevronRight size={14} />}
             </button>
 
-            <button 
+            <button
               onClick={() => { onNavigate('prod-stats'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'prod-stats' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -159,10 +193,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
             </button>
 
             <div className="pt-4 pb-1 px-2 border-t border-slate-100 mt-4">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Arşiv</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Arşiv</span>
             </div>
 
-            <button 
+            <button
               onClick={() => { onNavigate('archived'); onClose(); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${currentPage === 'archived' ? 'bg-slate-800 text-white font-semibold shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'}`}
             >
@@ -177,7 +211,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
           <div className="p-6 border-t border-slate-100 mt-auto">
             <div className="bg-slate-50 rounded-2xl p-4">
               <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">Sürüm</p>
-              <p className="text-sm font-medium text-slate-600">v1.4.0 (Enterprise)</p>
+              <p className="text-sm font-medium text-slate-600">v1.5.0 (Enterprise)</p>
             </div>
           </div>
         </div>
