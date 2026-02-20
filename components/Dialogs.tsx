@@ -685,13 +685,42 @@ export const OrderDetailsDialog: React.FC<{
         <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2"><Calculator size={20} className="text-teal-400" /><span className="text-xs font-bold uppercase tracking-widest">Tahmini Tahakkuk</span></div>
-            <div className="text-right"><p className="text-[10px] font-bold text-slate-500 uppercase">Güncel Navlun: ${formatNumberTR(latestFreightPrice)}</p></div>
+            <div className="text-right space-y-0.5">
+              <p className="text-[10px] font-bold text-teal-400 uppercase">Navlun: ${formatNumberTR(data.freight_price || 0)}</p>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-6">
             <div><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Toplam Maliyet ($)</p><p className="text-2xl font-black">${formatNumberTR(data.total_price || 0)}</p></div>
             <div><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Miktar (KG)</p><p className="text-2xl font-black">{formatNumberTR(data.total_kg || 0)} kg</p></div>
           </div>
+          {/* CNF karşılaştırması: sipariş navlunu vs güncel navlun */}
+          {(() => {
+            const lb = Number(data.total_lb) || 55000;
+            const fob = Number(data.fob_price) || 0;
+            const orderFreight = Number(data.freight_price) || 0;
+            const cnfAtOrder = fob + (orderFreight / lb);
+            const cnfCurrent = fob + (latestFreightPrice / lb);
+            const diff = cnfCurrent - cnfAtOrder;
+            const diffColor = diff > 0 ? 'text-rose-400' : diff < 0 ? 'text-emerald-400' : 'text-slate-400';
+            return (
+              <div className="border-t border-slate-700 pt-4 grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">CNF (Sipariş Navl.)</p>
+                  <p className="text-lg font-black">${formatNumberTR(cnfAtOrder)}<span className="text-[10px] font-normal text-slate-500">/lb</span></p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">CNF (Güncel Navl.)</p>
+                  <p className="text-lg font-black">${formatNumberTR(cnfCurrent)}<span className="text-[10px] font-normal text-slate-500">/lb</span></p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Fark</p>
+                  <p className={`text-lg font-black ${diffColor}`}>{diff >= 0 ? '+' : ''}${formatNumberTR(diff)}<span className="text-[10px] font-normal text-slate-500">/lb</span></p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
+
 
         {/* Notlar */}
         <GenericField label="Genel Notlar" field="note" type="textarea" isEditing={isEditing} value={data.note} onChange={updateField} />

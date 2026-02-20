@@ -1,228 +1,152 @@
-
-import React, { useState, useMemo } from 'react';
-import { ClipboardCheck, Plus, Search, CheckCircle2, Flame, Cookie, Activity, Hash, Users, MapPin, Beaker, FileText, Microscope } from 'lucide-react';
+import React, { useState } from 'react';
+import { FlaskConical, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { ExitAnalysis } from '../types';
-import { ExitAnalysisDialog } from '../components/Dialogs';
+
+const EMPTY_FORM: Omit<ExitAnalysis, 'id'> = {
+    contract_no: '', container_no: '', truck_no: '', batch_no: '', date: '', analyst: '', grade: 'WW320',
+    moisture: 0, foreign_matter: 0, caliber: 0, halves_ratio: 0, broken_ratio: 0, total_h_b: 0,
+    tip_broken: 0, skin_on: 0, spotted: 0, immature: 0, insect_bored: 0, off_color: 0,
+    small_caliber: 0, large_caliber: 0, note: '',
+    lot: '', department: '', customer: '', damaged: 0, dark_grain: 0, polarization: 0,
+    frying_time: '', frying_temp: 0, salt_ratio: 0,
+};
 
 const ExitAnalysisPage: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [records, setRecords] = useState<ExitAnalysis[]>([]);
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState<Omit<ExitAnalysis, 'id'>>({ ...EMPTY_FORM });
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const [exitAnalyses, setExitAnalyses] = useState<ExitAnalysis[]>([
-    {
-      id: '1',
-      lot: 'LOT-2024-05-A',
-      date: '22.05.2024',
-      grade: 'WW320',
-      department: 'Kızartma Hattı',
-      customer: 'Örnek Gıda A.Ş.',
-      moisture: 2.5,
-      halves_ratio: 10.5,
-      broken_ratio: 2.0,
-      total_h_b: 12.5,
-      foreign_matter: 0.0,
-      caliber: 310,
-      tip_broken: 0.5,
-      immature: 0.1,
-      insect_bored: 0.1,
-      spotted: 0.2,
-      skin_on: 0.1,
-      damaged: 0.0,
-      off_color: 0.1,
-      dark_grain: 0.3,
-      polarization: 1.5,
-      frying_time: '12 dk',
-      frying_temp: 165,
-      salt_ratio: 1.2,
-      small_caliber: 0.2,
-      large_caliber: 0.1,
-      contract_no: 'PRD-2024',
-      container_no: 'N/A',
-      analyst: 'Merve Lab',
-      note: 'Renk homojenliği ve tuz oranı ideal seviyede.'
-    }
-  ]);
+    const handleField = (field: string, value: string | number) =>
+        setForm(p => ({ ...p, [field]: value }));
 
-  const handleSaveAnalysis = (newAnalysis: ExitAnalysis) => {
-    setExitAnalyses(prev => [newAnalysis, ...prev]);
-  };
+    const handleSave = () => {
+        if (!form.contract_no || !form.date) return;
+        setRecords(p => [{ id: crypto.randomUUID(), ...form }, ...p]);
+        setShowForm(false);
+        setForm({ ...EMPTY_FORM });
+    };
 
-  const filteredAnalyses = useMemo(() => {
-    return exitAnalyses.filter(a => 
-      a.lot?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.customer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.grade.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [exitAnalyses, searchQuery]);
-
-  return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    const numField = (label: string, field: string, unit = '%') => (
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">Çıkış (Üretilen) Analizleri</h2>
-          <p className="text-slate-500 mt-1">İşlenmiş ürünlerin final kalite kontrol ve sevk öncesi raporları.</p>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{label} ({unit})</label>
+            <input type="number" step="0.01" value={(form as any)[field]}
+                onChange={e => handleField(field, parseFloat(e.target.value) || 0)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
         </div>
-        <button 
-          onClick={() => setIsDialogOpen(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-indigo-100 transition-all active:scale-95 group"
-        >
-          <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-          Final Analiz Girişi
-        </button>
-      </div>
+    );
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
-              <Flame size={20} />
+    return (
+        <div className="animate-in fade-in duration-500">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800">Çıkış Analizi</h2>
+                    <p className="text-slate-500 mt-1">Üretimde kullanılan ürünlerin çıkış kalite analiz kayıtları.</p>
+                </div>
+                <button onClick={() => setShowForm(!showForm)}
+                    className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                    <Plus size={16} />Analiz Ekle
+                </button>
             </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kavurma/Kızartma</span>
-          </div>
-          <h3 className="text-2xl font-black text-slate-900">{exitAnalyses.length} <span className="text-sm font-medium text-slate-400">Batch</span></h3>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <Activity size={20} />
-            </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Ort. Nem</span>
-          </div>
-          <h3 className="text-2xl font-black text-slate-900">%2.7 <span className="text-sm font-medium text-slate-400">İdeal</span></h3>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-              <CheckCircle2 size={20} />
-            </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Başarı Oranı</span>
-          </div>
-          <h3 className="text-2xl font-black text-slate-900">100%</h3>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-              <Users size={20} />
-            </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aktif Sevk Yeri</span>
-          </div>
-          <h3 className="text-2xl font-black text-slate-900">12 <span className="text-sm font-medium text-slate-400">Müşteri</span></h3>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
-        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-           <div className="relative w-full max-w-sm">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Lot, Müşteri veya Grade ara..." 
-              className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm w-full outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-             <button className="px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100">Bugün</button>
-             <button className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-lg text-xs font-bold border border-slate-100">Kritik Nem</button>
-          </div>
-        </div>
+            {showForm && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-sm">
+                    <h3 className="text-lg font-semibold text-slate-700 mb-4">Yeni Çıkış Analizi</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        {[
+                            { label: 'Kontrat No', field: 'contract_no', type: 'text' },
+                            { label: 'Lot', field: 'lot', type: 'text' },
+                            { label: 'Bölüm', field: 'department', type: 'text' },
+                            { label: 'Müşteri', field: 'customer', type: 'text' },
+                            { label: 'Tarih', field: 'date', type: 'date' },
+                            { label: 'Analist', field: 'analyst', type: 'text' },
+                            { label: 'Kamyon No', field: 'truck_no', type: 'text' },
+                            { label: 'Parti No', field: 'batch_no', type: 'text' },
+                        ].map(f => (
+                            <div key={f.field}>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">{f.label}</label>
+                                <input type={f.type} value={(form as any)[f.field]} onChange={e => handleField(f.field, e.target.value)}
+                                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        {numField('Nem', 'moisture')}
+                        {numField('Kırık', 'broken_ratio')}
+                        {numField('Zarlı', 'skin_on')}
+                        {numField('Lekeli', 'spotted')}
+                        {numField('Bozuk', 'damaged')}
+                        {numField('Koyu Tane', 'dark_grain')}
+                        {numField('Polarizasyon', 'polarization', 'no')}
+                        {numField('Tuz Oranı', 'salt_ratio')}
+                        {numField('Kızartma Sıcaklığı', 'frying_temp', '°C')}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Kızartma Süresi</label>
+                            <input type="text" value={form.frying_time} onChange={e => handleField('frying_time', e.target.value)} placeholder="ör: 3 dk"
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Not</label>
+                            <input type="text" value={form.note} onChange={e => handleField('note', e.target.value)} placeholder="İsteğe bağlı..."
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+                        </div>
+                    </div>
+                    <div className="flex gap-3 justify-end">
+                        <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">İptal</button>
+                        <button onClick={handleSave} className="px-4 py-2 text-sm font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600">Kaydet</button>
+                    </div>
+                </div>
+            )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50/50 text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-                <th className="px-6 py-4">Lot / Müşteri</th>
-                <th className="px-2 py-4 text-center">Grade</th>
-                <th className="px-2 py-4 text-center">Bölüm</th>
-                <th className="px-2 py-4 text-center">Nem / Tuz (%)</th>
-                <th className="px-2 py-4 text-center">Süre / Isı</th>
-                <th className="px-2 py-4 text-center">Şak+Kırık (%)</th>
-                <th className="px-2 py-4 text-center">Bozuk/Koyu</th>
-                <th className="px-4 py-4 text-right">Rapor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredAnalyses.map(analysis => (
-                <tr key={analysis.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                        <Hash size={12} className="text-indigo-500" /> {analysis.lot}
-                      </span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-slate-400 font-medium">{analysis.date}</span>
-                        <span className="text-[10px] text-slate-300">•</span>
-                        <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
-                          <MapPin size={8} /> {analysis.customer}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-tight">
-                      {analysis.grade}
-                    </span>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">{analysis.department}</span>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <div className="flex flex-col">
-                       <span className="text-sm font-bold text-slate-700">%{analysis.moisture}</span>
-                       <span className="text-[9px] text-slate-400 font-bold">TUZ: %{analysis.salt_ratio}</span>
-                    </div>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <div className="flex flex-col">
-                       <span className="text-xs font-bold text-slate-600">{analysis.frying_time || '-'}</span>
-                       <span className="text-[9px] text-slate-400 font-bold">{analysis.frying_temp ? `${analysis.frying_temp}°C` : '-'}</span>
-                    </div>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className="text-sm font-black text-slate-900">%{analysis.total_h_b}</span>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <div className="flex flex-col">
-                       <span className={`text-[10px] font-bold ${analysis.damaged > 0.5 ? 'text-rose-500' : 'text-slate-500'}`}>B: %{analysis.damaged}</span>
-                       <span className={`text-[10px] font-bold ${analysis.dark_grain > 0.5 ? 'text-orange-500' : 'text-slate-500'}`}>K: %{analysis.dark_grain}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-                       <FileText size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            {records.length === 0 ? (
+                <div className="py-24 flex flex-col items-center bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                    <FlaskConical size={64} className="opacity-20 text-slate-300 mb-4" />
+                    <p className="text-slate-400 font-medium">Henüz çıkış analizi eklenmedi.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {records.map(r => (
+                        <div key={r.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <button
+                                className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50"
+                                onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                            >
+                                <div className="flex items-center gap-4 text-left">
+                                    <FlaskConical size={18} className="text-teal-500 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-semibold text-slate-800">{r.contract_no} · {r.customer}</p>
+                                        <p className="text-xs text-slate-400">{r.date} · Lot: {r.lot} · {r.department}</p>
+                                    </div>
+                                </div>
+                                {expandedId === r.id ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                            </button>
+                            {expandedId === r.id && (
+                                <div className="border-t border-slate-100 px-6 py-4">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                        {[
+                                            ['Nem', r.moisture, '%'], ['Kırık', r.broken_ratio, '%'],
+                                            ['Bozuk', r.damaged, '%'], ['Koyu Tane', r.dark_grain, '%'],
+                                            ['Zarlı', r.skin_on, '%'], ['Lekeli', r.spotted, '%'],
+                                            ['Polarizasyon', r.polarization, ''], ['Tuz', r.salt_ratio, '%'],
+                                            ['Kızartma Sıcaklığı', r.frying_temp, '°C'], ['Kızartma Süresi', r.frying_time, ''],
+                                        ].map(([label, val]) => (
+                                            <div key={label as string} className="bg-slate-50 rounded-xl p-3">
+                                                <p className="text-xs text-slate-500">{label}</p>
+                                                <p className="font-bold text-slate-800">{val}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {r.note && <p className="mt-3 text-sm text-slate-500 italic">Not: {r.note}</p>}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
-      </div>
-      
-      <div className="bg-indigo-950 rounded-3xl p-8 text-white flex items-center justify-between overflow-hidden relative shadow-2xl">
-        <div className="relative z-10 flex items-center gap-8">
-          <div className="p-5 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
-            <Microscope size={40} className="text-teal-400" />
-          </div>
-          <div>
-            <h4 className="text-xl font-black tracking-tight">Üretim Kalite Standardı</h4>
-            <p className="text-sm opacity-60 max-w-2xl mt-1 leading-relaxed">
-              Final ürün analizleri sevk onayı için kritiktir. Nem oranı sevk öncesi %3'ün altında olmalıdır. 
-              Tuz oranı ve renk homojenliği müşteri spesifikasyonlarına göre doğrulanmalıdır.
-            </p>
-          </div>
-        </div>
-        <ClipboardCheck size={140} className="absolute -right-8 -bottom-8 text-white/5 rotate-12" />
-      </div>
-
-      <ExitAnalysisDialog 
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onSave={handleSaveAnalysis}
-      />
-    </div>
-  );
+    );
 };
 
 export default ExitAnalysisPage;

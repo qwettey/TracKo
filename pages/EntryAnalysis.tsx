@@ -1,274 +1,169 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { Microscope, Plus, Search, Filter, Droplets, Scissors, LayoutGrid, Info, ShieldCheck, AlertCircle, Beaker, FileText, Hash, Edit3 } from 'lucide-react';
+import React, { useState } from 'react';
+import { FlaskConical, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { Order, QualityAnalysis } from '../types';
-import { formatNumberTR } from '../utils/formatters';
-import { EntryAnalysisDialog } from '../components/Dialogs';
 
-interface EntryAnalysisProps {
-  orders: Order[];
-  analyses?: QualityAnalysis[];
-  onUpdateAnalyses?: (analyses: QualityAnalysis[]) => void;
+interface Props {
+    orders: Order[];
+    analyses: QualityAnalysis[];
+    onUpdateAnalyses: (analyses: QualityAnalysis[]) => void;
 }
 
-const EntryAnalysis: React.FC<EntryAnalysisProps> = ({ orders, analyses: externalAnalyses, onUpdateAnalyses }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedAnalysis, setSelectedAnalysis] = useState<QualityAnalysis | null>(null);
+const EMPTY_FORM: Omit<QualityAnalysis, 'id'> = {
+    contract_no: '', container_no: '', truck_no: '', batch_no: '', date: '', analyst: '', grade: 'WW320',
+    moisture: 0, foreign_matter: 0, caliber: 0, halves_ratio: 0, broken_ratio: 0, total_h_b: 0,
+    tip_broken: 0, skin_on: 0, spotted: 0, immature: 0, insect_bored: 0, off_color: 0,
+    small_caliber: 0, large_caliber: 0, note: '',
+};
 
-  // Eğer external analyses varsa onu kullan, yoksa local mock data
-  const [localAnalyses, setLocalAnalyses] = useState<QualityAnalysis[]>([
-    {
-      id: '1',
-      contract_no: 'CONT-2024-001',
-      container_no: 'MSKU-887711',
-      truck_no: '34ABC123',
-      batch_no: 'B24-05-1',
-      date: '10.05.2024',
-      analyst: 'Ahmet Yılmaz',
-      grade: 'WW320',
-      moisture: 4.5,
-      caliber: 310,
-      halves_ratio: 12.0,
-      broken_ratio: 3.5,
-      total_h_b: 15.5,
-      foreign_matter: 0.1,
-      tip_broken: 1.2,
-      skin_on: 0.5,
-      spotted: 0.3,
-      immature: 0.2,
-      insect_bored: 0.05,
-      off_color: 0.1,
-      small_caliber: 2.5,
-      large_caliber: 1.5,
-      note: 'Yüksek kalite, standart değerler.'
-    }
-  ]);
+const EntryAnalysis: React.FC<Props> = ({ orders, analyses, onUpdateAnalyses }) => {
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState<Omit<QualityAnalysis, 'id'>>({ ...EMPTY_FORM });
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // External analyses değiştiğinde local'i güncelle
-  useEffect(() => {
-    if (externalAnalyses && externalAnalyses.length > 0) {
-      setLocalAnalyses(externalAnalyses);
-    }
-  }, [externalAnalyses]);
+    const depotOrders = orders.filter(o => (o.stage === 'Depoda' || o.stage === 'Antrepoda') && !o.is_archived);
 
-  const analyses = externalAnalyses && externalAnalyses.length > 0 ? externalAnalyses : localAnalyses;
+    const handleField = (field: string, value: string | number) =>
+        setForm(p => ({ ...p, [field]: value }));
 
-  const handleSaveAnalysis = (newAnalysis: QualityAnalysis) => {
-    const updatedAnalyses = (() => {
-      const existingIdx = analyses.findIndex(a => a.id === newAnalysis.id);
-      if (existingIdx >= 0) {
-        const updated = [...analyses];
-        updated[existingIdx] = newAnalysis;
-        return updated;
-      }
-      return [newAnalysis, ...analyses];
-    })();
+    const handleSave = () => {
+        if (!form.contract_no || !form.date) return;
+        const newAnalysis: QualityAnalysis = { id: crypto.randomUUID(), ...form };
+        onUpdateAnalyses([newAnalysis, ...analyses]);
+        setShowForm(false);
+        setForm({ ...EMPTY_FORM });
+    };
 
-    if (onUpdateAnalyses) {
-      onUpdateAnalyses(updatedAnalyses);
-    } else {
-      setLocalAnalyses(updatedAnalyses);
-    }
-    setSelectedAnalysis(null);
-  };
-
-  const handleEdit = (analysis: QualityAnalysis) => {
-    setSelectedAnalysis(analysis);
-    setIsDialogOpen(true);
-  };
-
-  const handleNewReport = () => {
-    setSelectedAnalysis(null);
-    setIsDialogOpen(true);
-  };
-
-  const filteredAnalyses = useMemo(() => {
-    return analyses.filter(a =>
-      a.contract_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.container_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.grade.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [analyses, searchQuery]);
-
-  return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    const numField = (label: string, field: string, unit = '%') => (
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">Giriş (Hammadde) Analizleri</h2>
-          <p className="text-slate-500 mt-1">İthalat ve yerel alım ürünlerinin detaylı kalite raporları.</p>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{label} ({unit})</label>
+            <input type="number" step="0.01" value={(form as any)[field]}
+                onChange={e => handleField(field, parseFloat(e.target.value) || 0)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
         </div>
-        <button
-          onClick={handleNewReport}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-blue-100 transition-all active:scale-95 group"
-        >
-          <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-          Yeni Analiz Raporu
-        </button>
-      </div>
+    );
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <Droplets size={20} />
+    return (
+        <div className="animate-in fade-in duration-500">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800">Giriş Analizi</h2>
+                    <p className="text-slate-500 mt-1">Depoya giren ürünlerin kalite analiz kayıtları.</p>
+                </div>
+                <button onClick={() => setShowForm(!showForm)}
+                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                    <Plus size={16} />Analiz Ekle
+                </button>
             </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Ortalama Nem</span>
-          </div>
-          <h3 className="text-3xl font-black text-slate-900">%4.65</h3>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-              <Scissors size={20} />
-            </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Şak+Kırık</span>
-          </div>
-          <h3 className="text-3xl font-black text-slate-900">%14.2</h3>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
-              <AlertCircle size={20} />
-            </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Lekeli/Urlu</span>
-          </div>
-          <h3 className="text-3xl font-black text-slate-900">%0.85</h3>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-              <ShieldCheck size={20} />
-            </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Onay Oranı</span>
-          </div>
-          <h3 className="text-3xl font-black text-slate-900">%99.1</h3>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-          <div className="relative w-full max-sm:max-w-xs">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Kontrat, Konteyner veya Grade ara..."
-              className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm w-full outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400 font-medium">Filtrele:</span>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase">Son 30 Gün</button>
-              <button className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-bold uppercase">Hatalı Ürünler</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50/50 text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-                <th className="px-4 py-4">Konteyner / Parti</th>
-                <th className="px-2 py-4 text-center">Grade</th>
-                <th className="px-2 py-4 text-center">Nem (%)</th>
-                <th className="px-2 py-4 text-center">Kalibre</th>
-                <th className="px-2 py-4 text-center">Şak+Kırık (%)</th>
-                <th className="px-2 py-4 text-center">Zarlı/Lekeli</th>
-                <th className="px-2 py-4 text-center">Böcek (%)</th>
-                <th className="px-2 py-4 text-center">Analist</th>
-                <th className="px-4 py-4 text-right">İşlem</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredAnalyses.map(analysis => (
-                <tr key={analysis.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                        <Hash size={12} className="text-blue-500" /> {analysis.container_no}
-                      </span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-slate-400 font-medium">{analysis.date}</span>
-                        <span className="text-[10px] text-slate-300">•</span>
-                        <span className="text-[10px] text-slate-400 font-medium">{analysis.batch_no}</span>
-                      </div>
+            {showForm && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-sm">
+                    <h3 className="text-lg font-semibold text-slate-700 mb-4">Yeni Analiz Kaydı</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Kontrat No</label>
+                            <select value={form.contract_no} onChange={e => handleField('contract_no', e.target.value)}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">Seçin...</option>
+                                {depotOrders.map(o => <option key={o.id} value={o.contract_no}>{o.contract_no}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Konteyner No</label>
+                            <input type="text" value={form.container_no} onChange={e => handleField('container_no', e.target.value)}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Tarih</label>
+                            <input type="date" value={form.date} onChange={e => handleField('date', e.target.value)}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Analist</label>
+                            <input type="text" value={form.analyst} onChange={e => handleField('analyst', e.target.value)}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                        </div>
                     </div>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-tight">
-                      {analysis.grade}
-                    </span>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className={`text-sm font-bold ${analysis.moisture > 5 ? 'text-rose-500' : 'text-slate-700'}`}>
-                      %{analysis.moisture}
-                    </span>
-                  </td>
-                  <td className="px-2 py-4 text-center text-sm font-bold text-slate-700">{analysis.caliber}</td>
-                  <td className="px-2 py-4 text-center">
-                    <div className="flex flex-col items-center">
-                      <span className={`text-sm font-black ${analysis.total_h_b > 18 ? 'text-orange-500' : 'text-slate-900'}`}>%{analysis.total_h_b}</span>
-                      <span className="text-[9px] text-slate-400">Ş:{analysis.halves_ratio} K:{analysis.broken_ratio}</span>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        {numField('Nem', 'moisture')}
+                        {numField('Yabancı Madde', 'foreign_matter')}
+                        {numField('Kalibre', 'caliber', 'no')}
+                        {numField('Şak', 'halves_ratio')}
+                        {numField('Kırık', 'broken_ratio')}
+                        {numField('Ucu Kırık', 'tip_broken')}
+                        {numField('Zarlı', 'skin_on')}
+                        {numField('Lekeli', 'spotted')}
+                        {numField('Urlu', 'immature')}
+                        {numField('Böcek Yeniği', 'insect_bored')}
+                        {numField('Farklı Renk', 'off_color')}
+                        {numField('Küçük Kalibre', 'small_caliber')}
                     </div>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className="text-xs font-bold text-slate-600">%{((analysis.skin_on || 0) + (analysis.spotted || 0)).toFixed(1)}</span>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className={`text-xs font-bold ${analysis.insect_bored > 0.5 ? 'text-rose-600' : 'text-slate-500'}`}>
-                      %{analysis.insect_bored}
-                    </span>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className="text-[10px] font-medium text-slate-500">{analysis.analyst}</span>
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <button
-                      onClick={() => handleEdit(analysis)}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                      title="Analizi Düzenle"
-                    >
-                      <FileText size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    <div className="mb-4">
+                        <label className="block text-xs font-medium text-slate-500 mb-1">Not</label>
+                        <input type="text" value={form.note} onChange={e => handleField('note', e.target.value)} placeholder="İsteğe bağlı..."
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                    </div>
+                    <div className="flex gap-3 justify-end">
+                        <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">İptal</button>
+                        <button onClick={handleSave} className="px-4 py-2 text-sm font-semibold text-white bg-emerald-500 rounded-xl hover:bg-emerald-600">Kaydet</button>
+                    </div>
+                </div>
+            )}
 
-      <div className="bg-slate-900 rounded-3xl p-6 text-white flex items-center justify-between overflow-hidden relative">
-        <div className="relative z-10 flex items-center gap-6">
-          <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md">
-            <Beaker size={32} className="text-blue-400" />
-          </div>
-          <div>
-            <h4 className="text-lg font-bold">Kalite-Harman Korelasyonu</h4>
-            <p className="text-sm opacity-60 max-w-2xl">
-              Giriş analizindeki Şak/Kırık ve Nem verileri, Harman modülünde reçete hesaplamalarına baz teşkil eder.
-              Kritik eşiklerin (Nem &gt; %5) üzerindeki ürünler otomatik olarak kurutma hattına yönlendirilir.
-            </p>
-          </div>
+            {analyses.length === 0 ? (
+                <div className="py-24 flex flex-col items-center text-slate-300 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                    <FlaskConical size={64} className="opacity-20 mb-4" />
+                    <p className="text-slate-400 font-medium">Henüz analiz kaydı eklenmedi.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {analyses.map(a => (
+                        <div key={a.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <button
+                                className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors"
+                                onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
+                            >
+                                <div className="flex items-center gap-4 text-left">
+                                    <FlaskConical size={18} className="text-emerald-500 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-semibold text-slate-800">{a.contract_no}</p>
+                                        <p className="text-xs text-slate-400">{a.date} · {a.analyst} · {a.container_no}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-right hidden sm:block">
+                                        <span className="text-xs text-slate-500">Nem: </span>
+                                        <span className="text-sm font-semibold text-slate-700">%{a.moisture}</span>
+                                        <span className="mx-2 text-slate-200">|</span>
+                                        <span className="text-xs text-slate-500">Kırık: </span>
+                                        <span className="text-sm font-semibold text-slate-700">%{a.broken_ratio}</span>
+                                    </div>
+                                    {expandedId === a.id ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                                </div>
+                            </button>
+                            {expandedId === a.id && (
+                                <div className="border-t border-slate-100 px-6 py-4">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                        {[
+                                            ['Nem', a.moisture], ['Yabancı Madde', a.foreign_matter], ['Şak', a.halves_ratio],
+                                            ['Kırık', a.broken_ratio], ['Ucu Kırık', a.tip_broken], ['Zarlı', a.skin_on],
+                                            ['Lekeli', a.spotted], ['Urlu', a.immature], ['Böcek Yeniği', a.insect_bored],
+                                            ['Farklı Renk', a.off_color], ['Küçük Kalibre', a.small_caliber], ['Kalibre', a.caliber],
+                                        ].map(([label, val]) => (
+                                            <div key={label as string} className="bg-slate-50 rounded-xl p-3">
+                                                <p className="text-xs text-slate-500">{label}</p>
+                                                <p className="font-bold text-slate-800">%{val}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {a.note && <p className="mt-3 text-sm text-slate-500 italic">Not: {a.note}</p>}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
-        <Microscope size={120} className="absolute -right-6 -bottom-6 text-white/5 rotate-12" />
-      </div>
-
-      <EntryAnalysisDialog
-        isOpen={isDialogOpen}
-        onClose={() => {
-          setIsDialogOpen(false);
-          setSelectedAnalysis(null);
-        }}
-        onSave={handleSaveAnalysis}
-        orders={orders}
-        initialData={selectedAnalysis}
-      />
-    </div>
-  );
+    );
 };
 
 export default EntryAnalysis;
